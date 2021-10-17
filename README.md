@@ -31,7 +31,7 @@ Here is the procedure to try out MHCrank on the sample datasets provided using t
 
 ### Train MHCrank
 
-#### Define Hyperparamters
+#### Define Hyperparamters:
 There are other hyperparameters that may be adjusted, but the most important are listed below. 
 
 For exhaustive list, use command `python mhc_rank/make_architectures.py -h`
@@ -47,17 +47,17 @@ python mhc_rank/make_architectures.py --outout </output/directory/for/models/>
                                       --dense_layer_size <space demlimited list of ints describing number of units in dense layer>
 ```
 
-#### Initialize Training
+#### Initialize Training:
 ```bash
 qsub train_APmodels_init.sh data/training_data.csv data/pre_fold.csv </output/directory/for/models/>hyperparameters.json </output/directory/for/models/>
 ```
 
-#### Train Models
+#### Train Models:
 ```bash
 qsub train_APmodels_qsub.sh </output/directory/for/models/>
 ```
 
-#### Get Training Results
+#### Get Training Results:
 ```bash
 python get_training_results.py --num_archs <number of hyperparameter combinations>
                                --num_folds 4
@@ -66,16 +66,16 @@ python get_training_results.py --num_archs <number of hyperparameter combination
 ```
 
 ### Get Predictions
-#### Create an ensemble
+#### Create an ensemble:
 If desired, an ensemble can be created using the following jupyter notebook: `move_selected_models.ipynb`
 Note that the directories will need to be changed according to your implementation.
 
-#### Predict using selected models
+#### Predict using selected models:
 ```bash
 qsub start_pred.sh <prediction_outfile> <model_name> data/testing_data.csv.gz 00 <weight number> 0 50000
 ```
 
-#### Get Statistics
+#### Get Statistics:
 Statistics on predictions can be obtained via the following jupyter notebook: `get_statistics.ipynb`
 Note that the directories and file names will need to be changed according to your implementation.
 

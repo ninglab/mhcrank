@@ -32,8 +32,9 @@ Here is the procedure to try out MHCrank on the sample datasets provided using t
 ### Train MHCrank
 
 #### Define Hyperparamters
-There are other hyperparameters that may be adjusted, but the most important are listed below. For exhaustive list, 
-use command `python mhc_rank/make_architectures.py -h`
+There are other hyperparameters that may be adjusted, but the most important are listed below. 
+
+For exhaustive list, use command `python mhc_rank/make_architectures.py -h`
 
 ```bash
 python mhc_rank/make_architectures.py --outout </output/directory/for/models/>

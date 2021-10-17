@@ -2,7 +2,7 @@ Table of Contents
 =====================
  * [MHCrank](#mhcrank)
      * [Downloading MHCrank](#downloading-mhcrank)
-     * [Getting Started](#getting-started)
+     * [Implementation](#implementation)
      * [Citing](#citing)
      * [Credits and Contact Information](#credits--contact-information)
      * [Copyright and License Notice](#copyright--license-notice)
@@ -26,7 +26,7 @@ git clone https://github.com/ninglab/mhcrank.git
 ```
 
 
-## Getting Started
+## Implementation
 Here is the procedure to try out MHCrank on the sample datasets provided using the command line interface
 
 ### Train MHCrank

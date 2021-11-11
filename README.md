@@ -81,17 +81,16 @@ Note that the directories and file names will need to be changed according to yo
 
 
 ## Citing
+A pre-print version of our manuscript is available [here](https://doi.org/10.1101/2021.10.17.464741) on bioRxiv.
+
 If you find MHCrank useful in your research, please cite it using the following BibTex entry:
 ```
 @article{lawrence_mhcrank_2021,
   title = {Improving MHC Class I antigen processing predictions using representation learning and cleavage site-specific kernels},
-  journal = {},
-  volume = {},
-  number = {},
-  month = {},
-  year = {},
-  doi = {},
-  url = {},
+  journal = {bioRxiv},
+  month = {10},
+  year = {2021},
+  doi = {https://doi.org/10.1101/2021.10.17.464741},
   author = {Lawrence, Patrick J and Ning, Xia},
 }
 ```
@@ -101,14 +100,14 @@ If you use any part of this library in your research, please cite it using the f
 @online{mhcrank,
   title = {MHCrank library for predicting MHC Class I peptide processing},
   author = {Lawrence, Patrick J and Ning, Xia},
-  url = {},
+  url = {https://github.com/ninglab/mhcrank},
   year = {2021},
 }
 ```
 
 
 
-## Credits and Contact Information
+## Credits & Contact Information
 This implementation of MHCrank was written by Patrick J. Lawrence with contributiuons by Xia Ning
 
 If you have questions or encounter a problem, please contact Patrick J. Lawrence at <a href='mailto:patrick.skillman-lawrence@osumc.edu'>patrick.skillman-lawrence@osumc.edu</a>

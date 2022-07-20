@@ -7,19 +7,18 @@ from __future__ import print_function
 import time
 import collections
 import numpy
+from os.path import join
+import tensorflow as tf
 
 from hyperparameters import HyperparameterDefaults
 from amino_acid import *
+#from elmo_embed import ElmoEmbeddingLayer
+from EmbeddingLayerManager import EmbeddingLayerManager as SeqEmbed
+from class1_neural_network import DEFAULT_PREDICT_BATCH_SIZE
 from flanking_encoding import FlankingEncoding
 from common import configure_tensorflow
+from custom_loss import get_loss
 
-DEFAULT_PREDICT_BATCH_SIZE = 4096
-if os.environ.get("MHCFLURRY_DEFAULT_PREDICT_BATCH_SIZE"):
-    DEFAULT_PREDICT_BATCH_SIZE = int(os.environ[
-        "MHCFLURRY_DEFAULT_PREDICT_BATCH_SIZE"
-    ])
-    logging.info(
-        "Configured default predict batch size: %d" % DEFAULT_PREDICT_BATCH_SIZE)
 
 class Class1ProcessingNeuralNetwork(object):
     """
@@ -27,8 +26,9 @@ class Class1ProcessingNeuralNetwork(object):
     """
     network_hyperparameter_defaults = HyperparameterDefaults(
         amino_acid_encoding="BLOSUM62",
+        pssm=False,
         learn_embedding='no',
-        learned_embed_dims=10,
+        learned_embed_dims=21,
         peptide_max_length=15,
         n_flank_length=5,
         c_flank_length=5,
@@ -39,8 +39,8 @@ class Class1ProcessingNeuralNetwork(object):
         convolutional_activation="tanh",
         convolutional_kernel_l1_l2=[0.0001, 0.0001],
         dropout_rate=0.5,
-        post_convolutional_dense_layer_sizes=[],
-    )
+        post_convolutional_dense_layer_sizes=[])
+    
     """
     Hyperparameters (and their default values) that affect the neural network
     architecture.
@@ -65,8 +65,8 @@ class Class1ProcessingNeuralNetwork(object):
     """
 
     compile_hyperparameter_defaults = HyperparameterDefaults(
-        optimizer="adam",
         loss_function="binary_crossentropy",
+        optimizer="adam",
         learning_rate=None,
     )
     """
@@ -125,9 +125,10 @@ class Class1ProcessingNeuralNetwork(object):
             # This is because the network uses Lambda layers, which break
             # when serialized between python versions. The disadvantage is
             # that we can more easily lose backward compatability.
-            self._network = self.make_network(
-                **self.network_hyperparameter_defaults.subselect(
-                    self.hyperparameters))
+            params_for_net = self.network_hyperparameter_defaults.subselect(self.hyperparameters)
+            #del params_for_net['pssm']
+            
+            self._network = self.make_network(**params_for_net)
 
             if self.network_weights is not None:
                 self._network.set_weights(self.network_weights)
@@ -144,8 +145,11 @@ class Class1ProcessingNeuralNetwork(object):
 
     def fit(
             self,
-            sequences,
             targets,
+            sequences=None,
+            pep_embed=None,
+            cleave_embed=None,
+            pep_length=None,
             sample_weights=None,
             shuffle_permutation=None,
             verbose=1,
@@ -176,8 +180,11 @@ class Class1ProcessingNeuralNetwork(object):
             How often (in seconds) to print progress update. Set to None to
             disable.
         """
-        x_dict = self.network_input(sequences)
-
+        if self.hyperparameters['amino_acid_encoding'] == 'elmo':
+            x_dict = self.network_input(pep_embed=pep_embed, cleave_embed=cleave_embed, pep_length=pep_length)
+        else:
+            x_dict = self.network_input(sequences=sequences)
+        
         # Shuffle
         if shuffle_permutation is None:
             shuffle_permutation = numpy.random.permutation(len(targets))
@@ -191,14 +198,18 @@ class Class1ProcessingNeuralNetwork(object):
         fit_info = collections.defaultdict(list)
 
         if self._network is None:
+            params_for_net = self.network_hyperparameter_defaults.subselect(self.hyperparameters)
+            del params_for_net['pssm']
+            del params_for_net['cleave_radius']
             print("Making empty net")
             self._network = self.make_network(
                 **self.network_hyperparameter_defaults.subselect(self.hyperparameters))
             if verbose > -1:
                 self._network.summary()
-
+        
+        loss = get_loss(self.hyperparameters['loss_function'])        
         self.network().compile(
-            loss=self.hyperparameters['loss_function'],
+            loss=loss.loss,
             optimizer=self.hyperparameters['optimizer'])
 
         last_progress_print = None
@@ -267,7 +278,10 @@ class Class1ProcessingNeuralNetwork(object):
                 progress_callback()
 
         fit_info["time"] = time.time() - start
-        fit_info["num_points"] = len(sequences.dataframe)
+        if self.hyperparameters['amino_acid_encoding'] == 'elmo':
+            fit_info["num_points"] = pep_embed.shape[0]
+        else:
+            fit_info["num_points"] = len(sequences.dataframe)
         self.fit_info.append(dict(fit_info))
 
         if verbose > -1:
@@ -277,12 +291,9 @@ class Class1ProcessingNeuralNetwork(object):
                     self.network().get_layer(
                         "output_final").get_weights()).flatten())
 
-    def predict(
-            self,
-            peptides,
-            n_flanks=None,
-            c_flanks=None,
-            batch_size=DEFAULT_PREDICT_BATCH_SIZE):
+    def predict(self, pep_embed=None, cleave_embed=None, pep_length=None, 
+                peptides=None, n_flanks=None, c_flanks=None, 
+                batch_size=DEFAULT_PREDICT_BATCH_SIZE):
         """
         Predict antigen processing.
 
@@ -304,18 +315,25 @@ class Class1ProcessingNeuralNetwork(object):
         Processing scores. Range is 0-1, higher indicates more favorable
         processing.
         """
-        if n_flanks is None:
-            n_flanks = [""] * len(peptides)
-        if c_flanks is None:
-            c_flanks = [""] * len(peptides)
-
-        sequences = FlankingEncoding(
-            peptides=peptides, n_flanks=n_flanks, c_flanks=c_flanks)
-        return self.predict_encoded(sequences=sequences, batch_size=batch_size)
+        print("predicitng")
+        if self.hyperparameters['amino_acid_encoding'] == 'elmo':
+            return self.predict_encoded(pep_embed=pep_embed, cleave_embed=cleave_embed, pep_length=pep_length, batch_size=batch_size)
+        else:
+            if n_flanks is None:
+                n_flanks = [""] * len(peptides)
+            if c_flanks is None:
+                c_flanks = [""] * len(peptides)
+            sequences = FlankingEncoding(
+                peptides=peptides, n_flanks=n_flanks, c_flanks=c_flanks)
+            print(sequences)
+            return self.predict_encoded(sequences=sequences, batch_size=batch_size)
 
     def predict_encoded(
             self,
-            sequences,
+            pep_embed=None,
+            cleave_embed=None,
+            pep_length=None,
+            sequences=None,
             throw=True,
             batch_size=DEFAULT_PREDICT_BATCH_SIZE):
         """
@@ -334,13 +352,17 @@ class Class1ProcessingNeuralNetwork(object):
         -------
         numpy.array
         """
-        x_dict = self.network_input(sequences, throw=throw)
+        if self.hyperparameters['amino_acid_encoding'] == 'elmo':
+            x_dict = self.network_input(pep_embed=pep_embed, cleave_embed=cleave_embed, pep_length=pep_length, throw=throw)
+        else:
+            x_dict = self.network_input(sequences=sequences, throw=throw)
+
         raw_predictions = self.network().predict(
             x_dict, batch_size=batch_size)
         predictions = numpy.squeeze(raw_predictions).astype("float64")
         return predictions
 
-    def network_input(self, sequences, throw=True):
+    def network_input(self, pep_embed=None, cleave_embed=None, pep_length=None, sequences=None, throw=True):
         """
         Encode peptides to the fixed-length encoding expected by the neural
         network (which depends on the architecture).
@@ -356,25 +378,34 @@ class Class1ProcessingNeuralNetwork(object):
         -------
         numpy.array
         """
-        encoded = sequences.vector_encode(
-            vector_encoding_name=self.hyperparameters['amino_acid_encoding'],
-            peptide_max_length=self.hyperparameters['peptide_max_length'],
-            n_flank_length=self.hyperparameters['n_flank_length'],
-            c_flank_length=self.hyperparameters['c_flank_length'],
-            cleave_radius=self.hyperparameters['cleave_radius'],
-            allow_unsupported_amino_acids=True,
-            throw=throw)
-            
-        result = {
-            "sequence": encoded.array,
-            "cleave_site": encoded.cleave_site,
-            "peptide_length": encoded.peptide_lengths,
-        }
+        if self.hyperparameters['amino_acid_encoding'] == 'elmo':
+            result = {
+                "sequence": pep_embed,
+                "cleave_site": cleave_embed,
+                "peptide_length": pep_length,
+            }
+        else:
+            encoded = sequences.vector_encode(
+                vector_encoding_name=self.hyperparameters['amino_acid_encoding'],
+                peptide_max_length=self.hyperparameters['peptide_max_length'],
+                n_flank_length=self.hyperparameters['n_flank_length'],
+                c_flank_length=self.hyperparameters['c_flank_length'],
+                cleave_radius=self.hyperparameters['cleave_radius'],
+                allow_unsupported_amino_acids=True,
+                throw=throw)
+                
+            result = {
+                "sequence": encoded.array,
+                "cleave_site": encoded.cleave_site,
+                "peptide_length": encoded.peptide_lengths,
+            }
+
         return result
 
     def make_network(
             self,
             amino_acid_encoding,
+            pssm,
             learn_embedding,
             learned_embed_dims,
             peptide_max_length,
@@ -395,110 +426,142 @@ class Class1ProcessingNeuralNetwork(object):
         # We import keras here to avoid tensorflow debug output, etc. unless we
         # are actually about to use Keras.
         configure_tensorflow()
+        from tensorflow import (shape, reshape)
         from tensorflow.keras.layers import (
-            Input, Dense, Dropout, Concatenate, Conv1D, Embedding, Lambda)
+            Input, Dense, Dropout, Concatenate, Conv1D, Embedding, Lambda, Flatten, Layer, GlobalMaxPooling1D)
         # consider changing lambda to average1dpooling and maxpooling1d
         from tensorflow.keras.models import Model
         from tensorflow.keras import regularizers, initializers
 
-        model_inputs = {}
         if amino_acid_encoding == 'PC':
             n_features = 8
-        elif amino_acid_encoding == 'BLOSUM62' or amino_acid_encoding == 'blosum_norm':
+        if amino_acid_encoding == 'BLOSUM62' or amino_acid_encoding == 'blosum_norm':
             n_features = 21
-        elif amino_acid_encoding == 'PC_blosum':
+        if amino_acid_encoding == 'PC_blosum':
             n_features = 29
             
         seq_len = peptide_max_length + n_flank_length + c_flank_length
         cleave_len = 2*cleave_radius
+        k = 3
 
-        model_inputs['sequence'] = Input(
-            shape=(seq_len,),
-            dtype='float32',
-            name='sequence')
-        model_inputs['cleave_site'] = Input(
-            shape=(cleave_len),
-            dtype='float32',
-            name='cleave_site')
+        model_inputs = {}
+        if amino_acid_encoding == 'elmo':
+            model_inputs['sequence'] = Input(
+                shape=(seq_len,64,),
+                dtype='float32',
+                name='sequence')
+            model_inputs['cleave_site'] = Input(
+                shape=(cleave_len, 64,),
+                dtype='float32',
+                name='cleave_site')
+            model_inputs['peptide_length'] = Input(
+                shape=(1,),
+                dtype='float32',
+                name='peptide_length')
+
+        else:
+            model_inputs['sequence'] = Input(
+                shape=(seq_len,),
+                dtype='float32',
+                name='sequence')
+            model_inputs['cleave_site'] = Input(
+                shape=(cleave_len,),
+                dtype='float32',
+                name='cleave_site')
+
         model_inputs['peptide_length'] = Input(
             shape=(1,),
             dtype='float32',
             name='peptide_length')
         
-        
-        if learn_embedding != 'no':
-            sequence_learned = Embedding(input_dim=21,
-                                         output_dim=n_features,
-                                         mask_zero=True,
-                                         input_length=seq_len)(model_inputs['sequence'])
-            cleave_learned = Embedding(input_dim=21,
-                                       output_dim=n_features,
-                                       mask_zero=True,
-                                       input_length=cleave_len)(model_inputs['cleave_site'])
+        if amino_acid_encoding == 'seq':
+            seq_embedding = Embedding(input_dim=21,
+                                      output_dim=21,#learned_embed_dims,
+                                      mask_zero=False,
+                                      trainable=False,
+                                      input_length=seq_len,
+                                      name='SeqenceEmbedding')(model_inputs['sequence'])
+
+            cleave_embedding = Embedding(input_dim=21,
+                                      output_dim=21,#learned_embed_dims,
+                                      mask_zero=False,
+                                      trainable=False,
+                                      input_length=cleave_len,
+                                      name='CleaveEmbedding')(model_inputs['cleave_site'])
+
+        elif amino_acid_encoding == 'elmo':
+            seq_embedding = model_inputs['sequence']
+            cleave_embedding = model_inputs['cleave_site']
+
+        else:
+            if learn_embedding != 'no':
+                print(model_inputs['sequence'])
+                sequence_learned = Embedding(input_dim=21,
+                                            output_dim=21,#learned_embed_dims,
+                                            mask_zero=False,
+                                            input_length=seq_len)(model_inputs['sequence'])
+                cleave_learned = Embedding(input_dim=21,
+                                           output_dim=21,#learned_embed_dims,
+                                           mask_zero=False,
+                                           input_length=cleave_len)(model_inputs['cleave_site'])
+                print(sequence_learned)
             
-        if learn_embedding != 'yes':
-            def mk_embedding_matrix(encoding, n_features):
-                matrix = numpy.zeros((21, n_features))
-                encoding = ENCODING_DATA_FRAMES[encoding]
-                for i in range(21):
-                    matrix[i] = encoding.iloc[:, i]    
-                return matrix
+            if learn_embedding != 'yes':
+                def mk_embedding_matrix(encoding, n_features):
+                    matrix = numpy.zeros((21, n_features))
+                    encoding = ENCODING_DATA_FRAMES[encoding]
+                    for i in range(21):
+                        matrix[i] = encoding.iloc[:, i]    
+                    return matrix
             
-            embedding_matrix = mk_embedding_matrix(amino_acid_encoding, n_features)
+                embedding_matrix = mk_embedding_matrix(amino_acid_encoding, n_features)
             
-            sequence_hc = Embedding(input_dim=21,
+                sequence_hc = Embedding(input_dim=21,
                                     output_dim=n_features,
-                                    mask_zero=True,
+                                    mask_zero=False,
                                     input_length=seq_len,
                                     weights=[embedding_matrix],
                                     trainable=False)(model_inputs['sequence'])
-            cleave_hc = Embedding(input_dim=21,
+                cleave_hc = Embedding(input_dim=21,
                                   output_dim=n_features,
-                                  mask_zero=True,
+                                  mask_zero=False,
                                   input_length=cleave_len,
                                   weights=[embedding_matrix],
                                   trainable=False)(model_inputs['cleave_site'])
             
             
-        if learn_embedding == 'no':
-            seq_embedding = sequence_hc
-            celave_embedding = cleave_hc
+            if learn_embedding == 'no':
+                seq_embedding = sequence_hc
+                cleave_embedding = cleave_hc
             
-        elif learn_embedding == 'yes':
-            seq_embedding = sequence_learned
-            cleave_embedding = cleave_learned
+            elif learn_embedding == 'yes':
+                seq_embedding = sequence_learned
+                cleave_embedding = cleave_learned
             
-        elif learn_embedding == 'combo':
-            seq_embedding = Concatenate()([sequence_hc, sequence_learned])
-            cleave_embedding = Concatenate()([cleave_hc, cleave_learned])
+            elif learn_embedding == 'combo':
+                seq_embedding = Concatenate()([sequence_hc, sequence_learned])
+                cleave_embedding = Concatenate()([cleave_hc, cleave_learned])
         
         outputs_for_final_dense = []
 
         def resize_tensor(x) :
                 return x[:,0]  
-        
-        # Global kernel, also called CSSK in manuscript.
-        global_kernel = cleave_embedding
-        global_kernel = Conv1D(
-            filters=1,
-            kernel_size = cleave_len,
-            kernel_regularizer=regularizers.l1_l2(
-                *convolutional_kernel_l1_l2),
-            activation=convolutional_activation,
-            name='global_kernel')(global_kernel)
-        global_kernel = Lambda(resize_tensor,
-                               name='global_kernel_resize')(global_kernel)
+            
+        global_kernel = GlobalMaxPooling1D(name='global_kernel')(cleave_embedding)
         outputs_for_final_dense.append(global_kernel)
 
         current_layer = seq_embedding
+        # 1D conv layer following feature embedding
+        # aimed at capturing important signals from
+        # the microenvironments of the peptide and flanks
         current_layer = Conv1D(
             filters=convolutional_filters,
             kernel_size=convolutional_kernel_size,
             kernel_regularizer=regularizers.l1_l2(
                 *convolutional_kernel_l1_l2),
-            padding="same",
+            padding='same',
             activation=convolutional_activation,
-            name="conv1")(current_layer)
+            name="conv1")(current_layer)  
         if dropout_rate > 0:
             current_layer = Dropout(
                 name="conv1_dropout",
@@ -522,6 +585,7 @@ class Class1ProcessingNeuralNetwork(object):
                     activation=(
                         "tanh" if size == 1 else convolutional_activation
                     ))(current_layer)
+            
             single_output_result = current_layer
 
             dense_flank = None
@@ -609,6 +673,8 @@ class Class1ProcessingNeuralNetwork(object):
                 single_output_at_cleavage_position = Lambda(
                     cleavage_extractor, name="%s_cleaved" % flank)(
                         single_output_result)
+
+                print(single_output_at_cleavage_position.shape)
 
                 def max_pool_over_peptide_extractor(lst):
                     import tensorflow as tf
@@ -711,11 +777,33 @@ class Class1ProcessingNeuralNetwork(object):
             name="output_final",
             kernel_initializer=initializers.Ones(),
             )(output)
-        
+
         model = Model(
             inputs=[model_inputs[name] for name in sorted(model_inputs)],
             outputs=[output],
             name="predictor")
+
+        if amino_acid_encoding in ['seq']:
+            if amino_acid_encoding == 'seq':
+                path = '/users/PAS1475/lawrencep487/mhc_rank/mhc_rank/mhcseqnet_files'
+                fbase = 'mhcseq'
+
+            if cleave_radius == 1:
+                cleave_embed_weights = join(path, fbase+'_embed_c1.h5')
+            else:
+                cleave_embed_weights = join(path, fbase+'_embed_c2.h5')
+            if peptide_max_length == 9:
+                seq_embed_weights = join(path, fbase+'_embed_9.h5')
+            elif peptide_max_length == 15:
+                seq_embed_weights = join(path, fbase+'_embed_15.h5')
+            else:
+                seq_embed_weights = join(path, fbase+'_embed_10.h5')
+            
+            SeqEmbed.load_embedded_weight(model, 
+                                          seq_file = seq_embed_weights,
+                                          cleave_file = cleave_embed_weights,
+                                          embedded_dim = learned_embed_dims,
+                                          num_amino_acid = 21)
 
         return model
 

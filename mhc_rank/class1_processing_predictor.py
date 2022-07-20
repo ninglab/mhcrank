@@ -10,23 +10,17 @@ import json
 import hashlib
 import logging
 import collections
-import system as sys
 
 import numpy
 import pandas
 
 from version import __version__
+from class1_neural_network import DEFAULT_PREDICT_BATCH_SIZE
 from flanking_encoding import FlankingEncoding
-from class1_processing_neural_network import Class1ProcessingNeuralNetwork
+from downloads import get_default_class1_processing_models_dir
+from class1_processing_neural_network_old import Class1ProcessingNeuralNetwork
 from common import save_weights, load_weights, NumpyJSONEncoder
 
-DEFAULT_PREDICT_BATCH_SIZE = 4096
-if os.environ.get("MHCFLURRY_DEFAULT_PREDICT_BATCH_SIZE"):
-    DEFAULT_PREDICT_BATCH_SIZE = int(os.environ[
-        "MHCFLURRY_DEFAULT_PREDICT_BATCH_SIZE"
-    ])
-    logging.info(
-        "Configured default predict batch size: %d" % DEFAULT_PREDICT_BATCH_SIZE)
 
 class Class1ProcessingPredictor(object):
     """
@@ -245,8 +239,7 @@ class Class1ProcessingPredictor(object):
         if c_flanks is None:
             c_flanks = [""] * len(peptides)
 
-        sequences = FlankingEncoding(
-            peptides=peptides, n_flanks=n_flanks, c_flanks=c_flanks)
+        sequences = FlankingEncoding(peptides=peptides, n_flanks=n_flanks, c_flanks=c_flanks)
         return self.predict_to_dataframe_encoded(
             sequences=sequences, throw=throw, batch_size=batch_size)
 
@@ -271,8 +264,7 @@ class Class1ProcessingPredictor(object):
         score_array = []
 
         for (i, network) in enumerate(self.models):
-            predictions = network.predict_encoded(
-                sequences, throw=throw, batch_size=batch_size)
+            predictions = network.predict_encoded(sequences=sequences, throw=throw, batch_size=batch_size)
             score_array.append(predictions)
 
         score_array = numpy.array(score_array)
@@ -384,8 +376,7 @@ class Class1ProcessingPredictor(object):
         `Class1ProcessingPredictor` instance
         """
         if models_dir is None:
-            print("Please suppy a model directory")
-            sys.exit()
+            models_dir = get_default_class1_processing_models_dir()
 
         manifest_path = join(models_dir, "manifest.csv")
         manifest_df = pandas.read_csv(manifest_path, nrows=max_models)

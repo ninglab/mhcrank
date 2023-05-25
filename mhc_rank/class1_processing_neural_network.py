@@ -474,20 +474,8 @@ class Class1ProcessingNeuralNetwork(object):
         
         outputs_for_final_dense = []
 
-        def resize_tensor(x) :
-                return x[:,0]  
-        
         # Global kernel, also called CSSK in manuscript.
-        global_kernel = cleave_embedding
-        global_kernel = Conv1D(
-            filters=1,
-            kernel_size = cleave_len,
-            kernel_regularizer=regularizers.l1_l2(
-                *convolutional_kernel_l1_l2),
-            activation=convolutional_activation,
-            name='global_kernel')(global_kernel)
-        global_kernel = Lambda(resize_tensor,
-                               name='global_kernel_resize')(global_kernel)
+        global_kernel = GlobalMaxPooling1D(name='global_kernel')(cleave_embedding)
         outputs_for_final_dense.append(global_kernel)
 
         current_layer = seq_embedding

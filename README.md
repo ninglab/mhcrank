@@ -37,14 +37,14 @@ There are other hyperparameters that may be adjusted, but the most important are
 For exhaustive list, use command `python mhc_rank/make_architectures.py -h`
 
 ```bash
-python mhc_rank/make_architectures.py --outout </output/directory/for/models/>
+python mhc_rank/make_architectures.py --output </output/directory/for/models/>
                                       --learn_embedding <embedding methods (space delimited): no (for BLOSUM62), yes, and/or combo>
-                                      --learned_embed_dims <space demlimited list of ints to for amino acid learned embedding vector>
-                                      --peptide_max_length <space demlimited list of ints describing length to process peptides to>
-                                      --cleave_radius <space demlimited list of ints describing radius of cleavage site for CSSK>
-                                      --conv_n_kernels <space demlimited list of ints describing number of filters for initial conv layer>
-                                      --conv_kernel_size <space demlimited list of ints describing kernel size>
-                                      --dense_layer_size <space demlimited list of ints describing number of units in dense layer>
+                                      --learned_embed_dims <space demlimited list of ints to try for amino acid learned embedding vector>
+                                      --peptide_max_length <space demlimited list of ints describing length to process peptides to try>
+                                      --cleave_radius <space demlimited list of ints describing radius of cleavage site for CSSK to try>
+                                      --conv_n_kernels <space demlimited list of ints describing number of filters for initial conv layer to try>
+                                      --conv_kernel_size <space demlimited list of ints describing kernel size to try>
+                                      --dense_layer_size <space demlimited list of ints describing number of units in dense layer to try>
 ```
 
 #### Initialize Training:
@@ -81,16 +81,18 @@ Note that the directories and file names will need to be changed according to yo
 
 
 ## Citing
-A pre-print version of our manuscript is available [here](https://doi.org/10.1101/2021.10.17.464741) on bioRxiv.
+Our manuscript was published in Cell Reports Methods and is available
+[here](10.1016/j.crmeth.2022.100293).
 
 If you find MHCrank useful in your research, please cite it using the following BibTex entry:
 ```
 @article{lawrence_mhcrank_2021,
-  title = {Improving MHC Class I antigen processing predictions using representation learning and cleavage site-specific kernels},
-  journal = {bioRxiv},
-  month = {10},
-  year = {2021},
-  doi = {https://doi.org/10.1101/2021.10.17.464741},
+  title = {Improving MHC Class I antigen-processing predictions using representation learning and 
+           cleavage site-specific kernels},
+  journal = {Cell Rep Methods},
+  month = {09},
+  year = {2022},
+  doi = {10.1016/j.crmeth.2022.100293},
   author = {Lawrence, Patrick J and Ning, Xia},
 }
 ```
@@ -108,7 +110,7 @@ If you use any part of this library in your research, please cite it using the f
 
 
 ## Credits & Contact Information
-This implementation of MHCrank was written by Patrick J. Lawrence with contributiuons by Xia Ning
+This implementation of MHCrank was written by Patrick J. Lawrence with contributiuons by Xia Ning, PhD
 
 If you have questions or encounter a problem, please contact Patrick J. Lawrence at <a href='mailto:patrick.skillman-lawrence@osumc.edu'>patrick.skillman-lawrence@osumc.edu</a>
 

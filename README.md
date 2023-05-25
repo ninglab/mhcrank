@@ -46,11 +46,13 @@ python mhc_rank/make_architectures.py --output </output/directory/for/models/>
                                       --conv_kernel_size <space demlimited list of ints describing kernel size to try>
                                       --dense_layer_size <space demlimited list of ints describing number of units in dense layer to try>
 ```
+The above command will prodice a file ('hyperparameters.json') in the specified output directory that possess all combinations of the supplied hyperparameters.
 
 #### Initialize Training:
 ```bash
 qsub train_APmodels_init.sh data/training_data.csv data/pre_fold.csv </output/directory/for/models/>hyperparameters.json </output/directory/for/models/>
 ```
+This produces the following files in the supplied output directory: 'info.txt', 'manifest.csv', 'train_data.csv.bz2', and 'training_init_info.pkl'. These are used during training and will allow for training process to pick up where it was if it were to be interuppted.
 
 #### Train Models:
 ```bash

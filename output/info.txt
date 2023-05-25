@@ -1,0 +1,4 @@
+trained on	Thu May 25 17:34:32 2023
+package   	mhcflurry 1.0.0
+hostname  	p0040.ten.osc.edu
+user      	lawrencep487

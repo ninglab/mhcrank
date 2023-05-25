@@ -25,13 +25,6 @@ tqdm.monitor_interval = 0  # see https://github.com/tqdm/tqdm/issues/481
 from class1_processing_predictor import Class1ProcessingPredictor
 from class1_processing_neural_network import Class1ProcessingNeuralNetwork
 from common import configure_logging
-from local_parallelism import (
-    add_local_parallelism_args,
-    worker_pool_with_gpu_assignments_from_args,
-    call_wrapped_kwargs)
-from cluster_parallelism import (
-    add_cluster_parallelism_args,
-    cluster_results_from_args)
 
 # To avoid pickling large matrices to send to child processes when running in
 # parallel, we use this global variable as a place to store data. Data that is
@@ -113,10 +106,6 @@ parser.add_argument(
     default=None,
     help="If supplied with a csv following, states which data of --data arg "
     "should be included in each fold.")
-
-add_local_parallelism_args(parser)
-add_cluster_parallelism_args(parser)
-
 
 def assign_folds(df, num_folds, held_out_samples):
     """
@@ -302,7 +291,7 @@ def train_models(args):
     print("Found %d work items, of which %d are incomplete and will run now." % (
         len(all_work_items), len(work_items)))
 
-    serial_run = not args.cluster_parallelism and args.num_jobs == 0
+    serial_run = True
 
     # The estimated time to completion is more accurate if we randomize
     # the order of the work.
@@ -331,14 +320,6 @@ def train_models(args):
             pprint.pprint(predictor.models[-1].fit_info[-1]['training_info'])
         assert not work_items
         results_generator = None
-    elif args.cluster_parallelism:
-        # Run using separate processes HPC cluster.
-        results_generator = cluster_results_from_args(
-            args,
-            work_function=train_model,
-            work_items=work_items,
-            constant_data=GLOBAL_DATA,
-            result_serialization_method="pickle")
     else:
         worker_pool = worker_pool_with_gpu_assignments_from_args(args)
         print("Worker pool", worker_pool)

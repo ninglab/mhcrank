@@ -13,8 +13,13 @@ outdir=$4
 #PBS -M patrick.skillman-lawrence@osumc.edu
 
 ##### Main
+if [[ -n $SLURM_JOB_ID ]] ; then
+    SCRIPT_DIR=$(realpath $(dirname $(scontrol show job $SLURM_JOB_ID | awk -F= '/Command=/{print $2}' | cut -d" " -f1)))
+else
+    SCRIPT_DIR=$(dirname $(realpath $0))
+fi
 
-python $outdir/../../mhc_rank/train_processing_models_command.py --data $csv \
+python $SCRIPT_DIR/mhc_rank/train_processing_models_command.py --data $csv \
                                                                  --hyperparameters $hyperparameters \
                                                                  --out-models-dir $outdir \
                                                                  --pre-folded $folds \

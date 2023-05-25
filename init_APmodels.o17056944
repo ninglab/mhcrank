@@ -1,0 +1,28 @@
+/fs/scratch/PCON0041/PatrickLawrence/mhcrank-debug/mhc_rank/amino_acid.py:126: FutureWarning: The frame.append method is deprecated and will be removed from pandas in a future version. Use pandas.concat instead.
+  "PC_blosum": PC.append(blosum_normalized, ignore_index=True)  # encode blosum PC combo
+2023-05-25 17:34:32.67 INFO class1_processing_predictor - save: Wrote: /fs/scratch/PCON0041/PatrickLawrence/mhcrank-debug/output/manifest.csv
+To show stack trace, run:
+kill -s USR1 75863
+Arguments:
+Namespace(continue_incomplete=False, data='data/training_data.csv', debug=False, held_out_samples=10, hyperparameters='./output/hyperparameters.json', max_epochs=None, num_folds=4, num_replicates=1, only_initialize=True, out_models_dir='./output', pre_folded='data/pre_fold.csv', verbosity=0)
+Initializing training.
+Loaded hyperparameters list:
+[{'amino_acid_encoding': 'BLOSUM62',
+  'c_flank_length': 5,
+  'cleave_radius': 3,
+  'convolutional_activation': 'relu',
+  'convolutional_filters': 128,
+  'convolutional_kernel_l1_l2': [0.0, 0.0],
+  'convolutional_kernel_size': 9,
+  'dropout_rate': 0.5,
+  'learn_embedding': 'yes',
+  'learned_embed_dims': 21,
+  'loss_function': 'binary_crossentropy',
+  'n_flank_length': 5,
+  'optimizer': 'adam',
+  'peptide_max_length': 9,
+  'post_convolutional_dense_layer_sizes': 32}]
+Length of hyperparameters list: 1
+Loaded training data: (399392, 9)
+Subselected to 8-15mers: (399392, 9)
+Done initializing training.

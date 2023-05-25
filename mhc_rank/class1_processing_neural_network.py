@@ -3,10 +3,7 @@ Antigen processing neural network implementation
 """
 
 from __future__ import print_function
-
-import time
-import collections
-import numpy
+import collections, numpy, os, time
 
 from hyperparameters import HyperparameterDefaults
 from amino_acid import *
@@ -396,7 +393,7 @@ class Class1ProcessingNeuralNetwork(object):
         # are actually about to use Keras.
         configure_tensorflow()
         from tensorflow.keras.layers import (
-            Input, Dense, Dropout, Concatenate, Conv1D, Embedding, Lambda)
+            Input, Dense, Dropout, Concatenate, Conv1D, Embedding, GlobalMaxPooling1D, Lambda)
         # consider changing lambda to average1dpooling and maxpooling1d
         from tensorflow.keras.models import Model
         from tensorflow.keras import regularizers, initializers

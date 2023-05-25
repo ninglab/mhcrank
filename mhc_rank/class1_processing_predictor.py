@@ -1,32 +1,15 @@
 from __future__ import print_function
 
+import collections, hashlib, json, logging, numpy, pandas, sys, time
 from os.path import join, exists, abspath
-from os import mkdir
+
 from socket import gethostname
 from getpass import getuser
 
-import time
-import json
-import hashlib
-import logging
-import collections
-import system as sys
-
-import numpy
-import pandas
-
 from version import __version__
 from flanking_encoding import FlankingEncoding
-from class1_processing_neural_network import Class1ProcessingNeuralNetwork
+from class1_processing_neural_network import Class1ProcessingNeuralNetwork, DEFAULT_PREDICT_BATCH_SIZE
 from common import save_weights, load_weights, NumpyJSONEncoder
-
-DEFAULT_PREDICT_BATCH_SIZE = 4096
-if os.environ.get("MHCFLURRY_DEFAULT_PREDICT_BATCH_SIZE"):
-    DEFAULT_PREDICT_BATCH_SIZE = int(os.environ[
-        "MHCFLURRY_DEFAULT_PREDICT_BATCH_SIZE"
-    ])
-    logging.info(
-        "Configured default predict batch size: %d" % DEFAULT_PREDICT_BATCH_SIZE)
 
 class Class1ProcessingPredictor(object):
     """

@@ -63,7 +63,6 @@ qsub train_APmodels_qsub.sh </output/directory/for/models/>
 ```bash
 python get_training_results.py --num_archs <number of hyperparameter combinations>
                                --num_folds 4
-                               --n_dirs 1
                                --out </output/directory/for/models/>
 ```
 
